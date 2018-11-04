@@ -1,5 +1,4 @@
-import React, { useReducer, useContext } from 'react';
-import './App.css';
+import React, { useReducer, useContext, useMemo } from 'react';
 
 // redux
 function combineReducers(reducers) {
@@ -17,18 +16,16 @@ function useStore(rootReducer, initialState = {}) {
 }
 
 // react-redux
-function useConnect(StoreContext) {
+function useConnect(
+  StoreContext,
+  mapStateToProps = (s) => s,
+  mapDispatchToProps = () => ({})
+) {
   const [state, dispatch] = useContext(StoreContext);
+  const actions = useMemo(() => mapDispatchToProps(dispatch));
   return [
-    function useStateFromStore(
-      mapStateToProps = (s) => s,
-      mapDispatchToProps = () => ({})
-    ) {
-      return [
-        mapStateToProps(state),
-        mapDispatchToProps(dispatch)
-      ];
-    }
+    mapStateToProps(state),
+    actions
   ];
 }
 
@@ -38,7 +35,6 @@ const selectCount = (state) => state.count;
 // reducers
 const defaultState = { count: 0 };
 const rootReducer = combineReducers({
-  random: () => Math.random(),
   count: (state = defaultState.count, { type }) => {
     switch (type) {
       case "increment":
@@ -51,23 +47,23 @@ const rootReducer = combineReducers({
   }
 });
 
-// stores/GlobalStore.js
-const GlobalStoreContext = React.createContext();
+// stores/MainStore.js
+const MainStoreContext = React.createContext();
 
 // App.js
 function App() {
-  const [state, dispatch] = useStore(rootReducer);
+  const store = useStore(rootReducer);
   return (
-    <GlobalStoreContext.Provider value={[state, dispatch]}>
+    <MainStoreContext.Provider value={store}>
       <MyComponent />
-    </GlobalStoreContext.Provider>
+    </MainStoreContext.Provider>
   );
 }
 
 // MyComponent.js
 function MyComponent() {
-  const [useStateFromStore] = useConnect(GlobalStoreContext);
-  const [state, actions] = useStateFromStore(
+  const [state, actions] = useConnect(
+    MainStoreContext,
     (state) => ({ count: selectCount(state) }),
     (dispatch) => ({
       increment: () => dispatch({ type: "increment" }),
