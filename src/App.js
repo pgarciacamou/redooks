@@ -1,6 +1,6 @@
 import React, { useReducer, useContext, useMemo } from 'react';
 
-// redux
+// redux abstraction
 function combineReducers(reducers) {
   return (state = {}, action) => {
     for(let prop in reducers) {
@@ -15,7 +15,7 @@ function useStore(rootReducer, initialState = {}) {
   return useReducer(rootReducer, initialState, {});
 }
 
-// react-redux
+// react-redux abstraction
 function useConnect(
   StoreContext,
   mapStateToProps = (s) => s,
@@ -29,7 +29,7 @@ function useConnect(
   ];
 }
 
-// selectors
+// CounterSelectors.js
 const selectCount = (state) => state.count;
 
 // reducers
@@ -47,7 +47,7 @@ const rootReducer = combineReducers({
   }
 });
 
-// stores/MainStore.js
+// MainStore.js
 const MainStoreContext = React.createContext();
 
 // App.js
@@ -55,13 +55,13 @@ function App() {
   const store = useStore(rootReducer);
   return (
     <MainStoreContext.Provider value={store}>
-      <MyComponent />
+      <Counter />
     </MainStoreContext.Provider>
   );
 }
 
-// MyComponent.js
-function MyComponent() {
+// Counter.js
+function Counter() {
   const [state, actions] = useConnect(
     MainStoreContext,
     (state) => ({ count: selectCount(state) }),
