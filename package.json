@@ -15,12 +15,21 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": "react-app"
+    "extends": "react-app",
+    "plugins": [
+      "react-hooks"
+    ],
+    "rules": {
+      "react-hooks/rules-of-hooks": "error"
+    }
   },
   "browserslist": [
     ">0.2%",
     "not dead",
     "not ie <= 11",
     "not op_mini all"
-  ]
+  ],
+  "devDependencies": {
+    "eslint-plugin-react-hooks": "0.0.0"
+  }
 }
