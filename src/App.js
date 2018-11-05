@@ -12,49 +12,82 @@ import _ from "lodash";
 function combineReducers(reducers) {
   return (state = {}, action) => {
     for(let prop in reducers) {
-      const reducer = reducers[prop];
-      state[prop] = reducer(state[prop], action);
+      state[prop] = reducers[prop](state[prop], action);
     }
     return state;
   };
 };
 
-function useStore(rootReducer, initialState = {}) {
-  // Pass empty action to run all reducers and get intial state
-  const [state, dispatch] = useReducer(rootReducer, initialState, {});
+function useFlag(value = false) {
+  const [flag, setFlag] = useState(value);
+  const toggleOn = useCallback(() => setFlag(true), []);
+  const toggleOff = useCallback(() => setFlag(false), []);
+  return [flag, toggleOn, toggleOff];
+}
 
-  // Only update this callback unless the object reference is different
-  // in case the rootReducer returns a new object.
-  const getState = useCallback(() => state, [state]);
+function useProxyReducer(reducer, initialState, initalActions, getDispatchProxy) {
+  const [state, dispatch] = useReducer(reducer, initialState, initalActions);
+  const stateProxy = useCallback(() => state, [state]);
+  const dispatchProxy = useCallback(getDispatchProxy(dispatch), [dispatch]);
+  return [stateProxy, dispatchProxy];
+}
 
-  // Use flag to only render on dispatch
-  const [isDirty, toggleDirty] = useState(false);
-  const proxyDispatch = useCallback((action) => {
-    dispatch(action);
-    toggleDirty(true);
-  }, [dispatch]);
+function useListeners() {
+  const [listeners, setListeners] = useState([]);
+  const addListener = useCallback((listener) => {
+    setListeners((listeners) => [...listeners, listener]);
+  }, [setListeners]);
+  const removeListener = useCallback((listener) => {
+    setListeners((listeners) => _.reject(listeners, listener));
+  }, [setListeners]);
+  const executeListeners = useCallback((...args) => {
+    listeners.forEach(listener => listener(...args));
+  }, [listeners]);
+  return [executeListeners, addListener, removeListener];
+}
+
+function useSubscriber(onSubscribe, onUnsubscribe) {
+  return useCallback((...args) => {
+    onSubscribe(...args);
+    return () => onUnsubscribe(...args);
+  }, []);
+}
+
+function useStore(rootReducer, initialState = {}, initialActions = {}) {
+  // Handle state updates
+  const [isDirty, setDirty, unsetDirty] = useFlag();
 
   // Handle subscribers
-  const [subscribers, setSubscribers] = useState([]);
-  const subscribe = useCallback((subscriber) => {
-    setSubscribers((subscribers) => [...subscribers, subscriber]);
-    return function unsubscribe() {
-      setSubscribers((subscribers) => _.reject(subscribers, subscriber));
-    };
-  }, []);
+  const [notifySubscribers, addSubscriber, removeSubscriber] = useListeners();
+  const subscribe = useSubscriber(addSubscriber, removeSubscriber);
 
-  // Nofity subscribers when there is an update
-  if (isDirty) {
-    toggleDirty(false);
-    subscribers.forEach(subscriber => subscriber(getState()));
-  }
+  // Handle state
+  const [getState, proxyDispatch] = useProxyReducer(
+    rootReducer,
+    initialState,
+    initialActions,
+    function getDispatchProxy(dispatch) {
+      return (action) => {
+        dispatch(action);
+        setDirty();
+      };
+    }
+  );
 
-  // this ensures that the store only changes when
-  return useMemo(() => [
+  // Handle store
+  const store = useMemo(() => [
     getState,
     subscribe,
     proxyDispatch
   ], [getState, subscribe, proxyDispatch]);
+
+  // Execute subscribers upon updates
+  if (isDirty) {
+    notifySubscribers(getState());
+    unsetDirty();
+  }
+
+  return store;
 }
 
 // react-redux abstraction
@@ -65,7 +98,7 @@ function useConnect(
 ) {
   const [getState, subscribe, dispatch] = useContext(StoreContext);
   const initialState = useMemo(() => mapStateToProps(getState()), []);
-  const actions = useMemo(() => mapDispatchToProps(dispatch));
+  const actions = useMemo(() => mapDispatchToProps(dispatch), [dispatch]);
   const [localState, setLocalState] = useState(initialState);
 
   useEffect(() => {
