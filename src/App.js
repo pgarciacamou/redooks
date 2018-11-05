@@ -1,4 +1,12 @@
-import React, { useReducer, useContext, useMemo } from 'react';
+import React, {
+  useReducer,
+  useContext,
+  useMemo,
+  useState,
+  useEffect,
+  useCallback
+} from 'react';
+import _ from "lodash";
 
 // redux abstraction
 function combineReducers(reducers) {
@@ -10,9 +18,43 @@ function combineReducers(reducers) {
     return state;
   };
 };
+
 function useStore(rootReducer, initialState = {}) {
   // Pass empty action to run all reducers and get intial state
-  return useReducer(rootReducer, initialState, {});
+  const [state, dispatch] = useReducer(rootReducer, initialState, {});
+
+  // Only update this callback unless the object reference is different
+  // in case the rootReducer returns a new object.
+  const getState = useCallback(() => state, [state]);
+
+  // Use flag to only render on dispatch
+  const [isDirty, toggleDirty] = useState(false);
+  const proxyDispatch = useCallback((action) => {
+    dispatch(action);
+    toggleDirty(true);
+  }, [dispatch]);
+
+  // Handle subscribers
+  const [subscribers, setSubscribers] = useState([]);
+  const subscribe = useCallback((subscriber) => {
+    setSubscribers((subscribers) => [...subscribers, subscriber]);
+    return function unsubscribe() {
+      setSubscribers((subscribers) => _.reject(subscribers, subscriber));
+    };
+  }, []);
+
+  // Nofity subscribers when there is an update
+  if (isDirty) {
+    toggleDirty(false);
+    subscribers.forEach(subscriber => subscriber(getState()));
+  }
+
+  // this ensures that the store only changes when
+  return useMemo(() => [
+    getState,
+    subscribe,
+    proxyDispatch
+  ], [getState, subscribe, proxyDispatch]);
 }
 
 // react-redux abstraction
@@ -21,20 +63,45 @@ function useConnect(
   mapStateToProps = (s) => s,
   mapDispatchToProps = () => ({})
 ) {
-  const [state, dispatch] = useContext(StoreContext);
+  const [getState, subscribe, dispatch] = useContext(StoreContext);
+  const initialState = useMemo(() => mapStateToProps(getState()), []);
   const actions = useMemo(() => mapDispatchToProps(dispatch));
-  return [
-    mapStateToProps(state),
+  const [localState, setLocalState] = useState(initialState);
+
+  useEffect(() => {
+    return subscribe((state) => {
+      // Shallow compare
+      const newState = mapStateToProps(state);
+      if(localState.length !== newState.length) {
+        setLocalState(mapStateToProps(state));
+      } else {
+        for (let prop in localState) {
+          if(localState[prop] !== newState[prop]) {
+            setLocalState(mapStateToProps(state));
+            break;
+          }
+        }
+      }
+    });
+  }, [subscribe]);
+
+  return useMemo(() => [
+    localState,
     actions
-  ];
+  ], [localState, actions]);
 }
 
-// CounterSelectors.js
-const selectCount = (state) => state.count;
+// selectors
+const getCount = (state) => state.count;
+const getNeverUpdates = (state) => state.neverUpdates;
 
 // reducers
-const defaultState = { count: 0 };
+const defaultState = {
+  neverUpdates: "always the same",
+  count: 0
+};
 const rootReducer = combineReducers({
+  neverUpdates: (state = defaultState.neverUpdates) => state,
   count: (state = defaultState.count, { type }) => {
     switch (type) {
       case "increment":
@@ -53,9 +120,17 @@ const MainStoreContext = React.createContext();
 // App.js
 function App() {
   const store = useStore(rootReducer);
+  const inner = useMemo(() => (
+    <>
+      <Counter />
+      <br />
+      <ShouldNotUpdateHeavyComponent />
+    </>
+  ), []);
+
   return (
     <MainStoreContext.Provider value={store}>
-      <Counter />
+      {inner}
     </MainStoreContext.Provider>
   );
 }
@@ -64,7 +139,7 @@ function App() {
 function Counter() {
   const [state, actions] = useConnect(
     MainStoreContext,
-    (state) => ({ count: selectCount(state) }),
+    (state) => ({ count: getCount(state) }),
     (dispatch) => ({
       increment: () => dispatch({ type: "increment" }),
       decrement: () => dispatch({ type: "decrement" })
@@ -76,6 +151,26 @@ function Counter() {
       {JSON.stringify(state)}
       <button onClick={actions.increment}>increment</button>
       <button onClick={actions.decrement}>decrement</button>
+    </>
+  );
+}
+
+let externalCounter = 0;
+function ShouldNotUpdateHeavyComponent() {
+  const [state] = useConnect(
+    MainStoreContext,
+    (state) => {
+      return {
+        neverUpdates: getNeverUpdates(state)
+      };
+    }
+  );
+
+  return (
+    <>
+      {`this number -->${++externalCounter}<-- should always equal 1`}
+      <br />
+      {`this should never change -->${state.neverUpdates}<--`}
     </>
   );
 }
