@@ -1,9 +1,10 @@
 import React, {
-  useReducer,
-  useContext,
+  useRef,
   useMemo,
   useState,
   useEffect,
+  useReducer,
+  useContext,
   useCallback
 } from 'react';
 import _ from "lodash";
@@ -91,6 +92,12 @@ function useStore(rootReducer, initialState = {}, initialActions = {}) {
 }
 
 // react-redux abstraction
+function useStateRef(value) {
+  const [state, setState] = useState(value);
+  const ref = useRef();
+  ref.current = state;
+  return [ref, setState];
+}
 function useConnect(
   StoreContext,
   mapStateToProps = (s) => s,
@@ -99,29 +106,29 @@ function useConnect(
   const [getState, subscribe, dispatch] = useContext(StoreContext);
   const initialState = useMemo(() => mapStateToProps(getState()), []);
   const actions = useMemo(() => mapDispatchToProps(dispatch), [dispatch]);
-  const [localState, setLocalState] = useState(initialState);
+  const [localStateRef, setLocalState] = useStateRef(initialState);
 
   useEffect(() => {
     return subscribe((state) => {
       // Shallow compare
       const newState = mapStateToProps(state);
-      if(localState.length !== newState.length) {
+      if(localStateRef.current.length !== newState.length) {
         setLocalState(mapStateToProps(state));
       } else {
-        for (let prop in localState) {
-          if(localState[prop] !== newState[prop]) {
+        for (let prop in localStateRef.current) {
+          if(localStateRef.current[prop] !== newState[prop]) {
             setLocalState(mapStateToProps(state));
             break;
           }
         }
       }
     });
-  }, [subscribe]);
+  }, [subscribe, localStateRef]);
 
   return useMemo(() => [
-    localState,
+    localStateRef.current,
     actions
-  ], [localState, actions]);
+  ], [localStateRef.current, actions]);
 }
 
 // selectors
