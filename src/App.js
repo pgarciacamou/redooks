@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { combineReducers, useStore } from "./not-redux";
-import { useConnect } from "./not-react-redux";
+import { combineReducers, useStore } from "./not-redux.js";
+import { useConnect } from "./not-react-redux.js";
 
 // selectors
 const getCount = (state) => state.count;

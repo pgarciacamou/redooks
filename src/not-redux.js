@@ -1,45 +1,8 @@
-import { useMemo, useState, useReducer, useCallback } from 'react';
-
-function useFlag(value = false) {
-  const [flag, setFlag] = useState(value);
-  const toggleOn = useCallback(() => setFlag(true), []);
-  const toggleOff = useCallback(() => setFlag(false), []);
-  return [flag, toggleOn, toggleOff];
-}
-
-function useProxyReducer(reducer, initialState, initalActions, getDispatchProxy) {
-  const [state, dispatch] = useReducer(reducer, initialState, initalActions);
-  const stateProxy = useCallback(() => state, [state]);
-  const dispatchProxy = useCallback(getDispatchProxy(dispatch), [dispatch]);
-  return [stateProxy, dispatchProxy];
-}
-
-function useListeners() {
-  const [listeners, setListeners] = useState([]);
-  const addListener = useCallback((listener) => {
-    setListeners((listeners) => [...listeners, listener]);
-  }, [setListeners]);
-  const removeListener = useCallback((listener) => {
-    setListeners((listeners) => {
-      const index = listeners.indexOf(listener);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
-      return listeners
-    });
-  }, [setListeners]);
-  const executeListeners = useCallback((...args) => {
-    listeners.forEach(listener => listener(...args));
-  }, [listeners]);
-  return [executeListeners, addListener, removeListener];
-}
-
-function useSubscriber(onSubscribe, onUnsubscribe) {
-  return useCallback((...args) => {
-    onSubscribe(...args);
-    return () => onUnsubscribe(...args);
-  }, []);
-}
+import { useMemo } from "react";
+import useFlag from "./hooks/useFlag.js";
+import useReducerWithGetter from "./hooks/useReducerWithGetter.js";
+import useListeners from "./hooks/useListeners.js";
+import useSubscriber from "./hooks/useSubscriber.js";
 
 export function combineReducers(reducers) {
   return (state = {}, action) => {
@@ -59,7 +22,7 @@ export function useStore(rootReducer, initialState = {}, initialActions = {}) {
   const subscribe = useSubscriber(addSubscriber, removeSubscriber);
 
   // Handle state
-  const [getState, proxyDispatch] = useProxyReducer(
+  const [getState, proxyDispatch] = useReducerWithGetter(
     rootReducer,
     initialState,
     initialActions,

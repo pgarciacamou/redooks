@@ -1,11 +1,5 @@
-import { useRef, useMemo, useState, useEffect, useContext } from 'react';
-
-function useStateRef(value) {
-  const [state, setState] = useState(value);
-  const ref = useRef();
-  ref.current = state;
-  return [ref, setState];
-}
+import { useMemo, useEffect, useContext } from "react";
+import useStateRef from "./hooks/useStateRef.js";
 
 export function useConnect(
   StoreContext,
