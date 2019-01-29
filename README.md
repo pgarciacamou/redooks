@@ -1,4 +1,8 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app) **using npm**.
+Bootstrapped with [Create React App](https://github.com/facebook/create-react-app) **using npm**.
+
+**NOTE:** this repo was opened only for https://github.com/reduxjs/react-redux/issues/1063. This repo is just a POC, it is not a library, and it is not intended for any production environment. Use at your own risk.
+
+--------
 
 ## Available Scripts
 
