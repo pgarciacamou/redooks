@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useReducer } from "react";
 import { useEvergreenRef } from "./useEvergreenRef";
 
-export default function useStateRef(value) {
-  const [state, setState] = useState(value);
+export default function useReducerRef(...args) {
+  const [state, setState] = useReducer(...args);
   const stateRef = useEvergreenRef(state);
   const setStateRef = useEvergreenRef(setState);
   return [stateRef, setStateRef];

@@ -1,22 +1,23 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
+import useStateRef from "./useStateRef";
 
 export default function useListeners() {
-  const [listeners, setListeners] = useState([]);
+  const [listenersRef, setListenersRef] = useStateRef([]);
   const addListener = useCallback((listener) => {
-    setListeners((listeners) => [...listeners, listener]);
-  }, [setListeners]);
+    setListenersRef.current((listeners) => [...listeners, listener]);
+  }, [setListenersRef]);
   const removeListener = useCallback((listener) => {
-    setListeners((listeners) => {
-      // FIXME: do not return the same array
-      const index = listeners.indexOf(listener);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
-      return listeners
+    setListenersRef.current((listeners) => {
+      return listeners.reduce((accum, l) => {
+        if (l === listener) {
+          return accum;
+        }
+        return [...accum, l];
+      }, []);
     });
-  }, [setListeners]);
+  }, [setListenersRef]);
   const executeListeners = useCallback((...args) => {
-    listeners.forEach(listener => listener(...args));
-  }, [listeners]);
+    listenersRef.current.forEach(listener => listener(...args));
+  }, [listenersRef]);
   return [executeListeners, addListener, removeListener];
 }
