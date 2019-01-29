@@ -2,11 +2,11 @@ import React, { useMemo } from 'react';
 import { combineReducers, useStore } from "./not-redux.js";
 import { useConnect } from "./not-react-redux.js";
 
-// selectors
+// selectors/...
 const getCount = (state) => state.count;
 const getNeverUpdates = (state) => state.neverUpdates;
 
-// reducers
+// reducers/index.js
 const defaultState = {
   neverUpdates: "always the same",
   count: 0
@@ -25,31 +25,35 @@ const rootReducer = combineReducers({
   }
 });
 
-// MainStore.js
+// stores/MainStore.js
 const MainStoreContext = React.createContext();
+function useMainStore(mapStateToProps, mapDispatchToProps) {
+  return useConnect(MainStoreContext, mapStateToProps, mapDispatchToProps);
+}
+function MainStoreProvider({ children }) {
+  // WARNING: this will create a new store for every new instance
+  const storeRef = useStore(rootReducer);
+  return useMemo(() => (
+    <MainStoreContext.Provider value={storeRef}>
+      {children}
+    </MainStoreContext.Provider>
+  ), [storeRef, children]);
+}
 
 // App.js
 function App() {
-  const store = useStore(rootReducer);
-  const inner = useMemo(() => (
-    <>
+  return (
+    <MainStoreProvider>
       <Counter />
       <br />
       <ShouldNotUpdateHeavyComponent />
-    </>
-  ), []);
-
-  return (
-    <MainStoreContext.Provider value={store}>
-      {inner}
-    </MainStoreContext.Provider>
+    </MainStoreProvider>
   );
 }
 
 // Counter.js
 function Counter() {
-  const [state, actions] = useConnect(
-    MainStoreContext,
+  const [state, actions] = useMainStore(
     (state) => ({ count: getCount(state) }),
     (dispatch) => ({
       increment: () => dispatch({ type: "increment" }),
@@ -68,8 +72,7 @@ function Counter() {
 
 let externalCounter = 0;
 function ShouldNotUpdateHeavyComponent() {
-  const [state] = useConnect(
-    MainStoreContext,
+  const [state] = useMainStore(
     (state) => {
       return {
         neverUpdates: getNeverUpdates(state)
